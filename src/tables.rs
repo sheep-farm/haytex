@@ -3,6 +3,7 @@
 
 use crate::helpers::*;
 use crate::models::{ModelData, DfData};
+use crate::format::{Format, Table, fmt_coef, fmt_se};
 use hayashi_plugin_sdk::{hayashi_fn, value::HayashiValue};
 use std::collections::HashMap;
 
@@ -59,9 +60,9 @@ pub fn table(
 }
 
 /// 2. haytex::regression(models, opts)
-/// Multiple models side by side, publication-ready.
+/// Multiple models side by side (or transposed), publication-ready.
 /// opts: title="", label="", labels={}, stars=true, se=true, decimals=3,
-///       stats=["n", "r2"]
+///       stats=["n", "r2"], format="latex", transpose=false
 #[hayashi_fn]
 pub fn regression(
     models: Vec<HayashiValue>,
@@ -73,6 +74,8 @@ pub fn regression(
     let title = opt_str(&opts, "title", "");
     let label = opt_str(&opts, "label", "");
     let var_labels = opt_labels(&opts, "labels");
+    let transpose = opt_bool(&opts, "transpose", false);
+    let fmt = Format::from_str(&opt_str(&opts, "format", "latex"));
 
     // Default stats
     let stats_list = match opts.get("stats") {
@@ -104,38 +107,60 @@ pub fn regression(
         }
     }
 
-    let mut s = String::new();
-    s.push_str(&wrap_table_start(&title, &label));
-    s.push_str(&format!("\\begin{{tabular}}{{l{}}}\n\\toprule\n", repeat("c", nmodels)));
-
-    // Model headers: (1), (2), ...
-    let model_names: Vec<String> = (0..nmodels).map(|i| format!("({})", i + 1)).collect();
-    s.push_str(" & ");
-    s.push_str(&join(&model_names, " & "));
-    s.push_str(" \\\\\n\\midrule\n");
-
-    // Coefficient rows
-    for vname in &all_vars {
-        let display_name = if vname == "_cons" || vname == "const" {
+    let display_name = |vname: &str| -> String {
+        if vname == "_cons" || vname == "const" {
             "Constant".to_string()
         } else if let Some(lbl) = var_labels.get(vname) {
-            esc(lbl)
+            lbl.to_string()
         } else {
-            esc(vname)
-        };
+            vname.to_string()
+        }
+    };
 
-        let mut coef_row: Vec<String> = Vec::new();
-        let mut se_row: Vec<String> = Vec::new();
+    let mut tbl = if transpose {
+        build_regression_transposed(&model_data, &all_vars, &stats_list, &display_name,
+                                    decimals, show_stars, show_se, fmt)
+    } else {
+        build_regression_columns(&model_data, &all_vars, &stats_list, &display_name,
+                                 decimals, show_stars, show_se, fmt, nmodels)
+    };
+    tbl.caption = title;
+    tbl.label = label;
+    tbl.show_stars = show_stars;
+    tbl.render(fmt)
+}
 
-        for md in &model_data {
+/// Standard layout: variables in rows, models in columns.
+fn build_regression_columns(
+    model_data: &[ModelData],
+    all_vars: &[String],
+    stats_list: &[String],
+    display_name: &dyn Fn(&str) -> String,
+    decimals: usize,
+    show_stars: bool,
+    show_se: bool,
+    fmt: Format,
+    nmodels: usize,
+) -> Table {
+    let ncols = 1 + nmodels;
+    let mut tbl = Table::new(ncols, 'c');
+    tbl.align[0] = 'l';
+
+    // Header: (1) (2) ...
+    let model_names: Vec<String> = (0..nmodels).map(|i| format!("({})", i + 1)).collect();
+    let mut hdr = vec![String::new()];
+    hdr.extend(model_names);
+    tbl.headers.push(hdr);
+
+    // Coefficient rows
+    for vname in all_vars {
+        let mut coef_row = vec![fmt.esc_cell(&display_name(vname))];
+        let mut se_row = vec![String::new()];
+        for md in model_data {
             if let Some(idx) = md.find_var(vname) {
-                let c = md.coef[idx];
-                let se = md.std_err[idx];
-                let p = md.p_value[idx];
-                let star = if show_stars { stars(p) } else { "" };
-                coef_row.push(format!("{}{}", fmt_trim(c, decimals), star));
+                coef_row.push(fmt_coef(md.coef[idx], md.p_value[idx], decimals, fmt, show_stars));
                 if show_se {
-                    se_row.push(format!("({})", fmt_trim(se, decimals)));
+                    se_row.push(fmt_se(md.std_err[idx], decimals));
                 }
             } else {
                 coef_row.push(String::new());
@@ -144,24 +169,16 @@ pub fn regression(
                 }
             }
         }
-
-        s.push_str(&display_name);
-        s.push_str(" & ");
-        s.push_str(&join(&coef_row, " & "));
-        s.push_str(" \\\\\n");
+        tbl.body.push(coef_row);
         if show_se {
-            s.push_str(" & ");
-            s.push_str(&join(&se_row, " & "));
-            s.push_str(" \\\\\n");
+            tbl.body.push(se_row);
         }
     }
 
-    s.push_str("\\midrule\n");
-
-    // Summary statistics rows
-    for stat_name in &stats_list {
-        let mut row: Vec<String> = Vec::new();
-        for md in &model_data {
+    // Footer: stats
+    for stat_name in stats_list {
+        let mut row = vec![fmt.esc_cell(&stat_label(stat_name))];
+        for md in model_data {
             let val = if stat_name == "n" {
                 md.get_stat("n").map(|v| format!("{}", v as i64)).unwrap_or_default()
             } else {
@@ -169,19 +186,72 @@ pub fn regression(
             };
             row.push(val);
         }
-        let stat_label = stat_label(stat_name);
-        s.push_str(&stat_label);
-        s.push_str(" & ");
-        s.push_str(&join(&row, " & "));
-        s.push_str(" \\\\\n");
+        tbl.footer.push(row);
     }
+    tbl
+}
 
-    s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(&wrap_table_end(&title));
-    if show_stars {
-        s.push_str(star_legend());
+/// Transposed layout: models in rows, variables in columns.
+fn build_regression_transposed(
+    model_data: &[ModelData],
+    all_vars: &[String],
+    stats_list: &[String],
+    display_name: &dyn Fn(&str) -> String,
+    decimals: usize,
+    show_stars: bool,
+    show_se: bool,
+    fmt: Format,
+) -> Table {
+    let nvars = all_vars.len();
+    let ncols = 1 + nvars + stats_list.len();
+    let mut tbl = Table::new(ncols, 'c');
+    tbl.align[0] = 'l';
+
+    // Header: (1) var1 var2 ... stat1 stat2 ...
+    let mut hdr = vec!["Model".to_string()];
+    for v in all_vars {
+        hdr.push(fmt.esc_cell(&display_name(v)));
     }
-    s
+    for s in stats_list {
+        hdr.push(fmt.esc_cell(&stat_label(s)));
+    }
+    tbl.headers.push(hdr);
+
+    // One row per model, two rows (coef + se) if show_se
+    for (i, md) in model_data.iter().enumerate() {
+        let mut coef_row = vec![format!("({})", i + 1)];
+        let mut se_row = vec![String::new()];
+        for vname in all_vars {
+            if let Some(idx) = md.find_var(vname) {
+                coef_row.push(fmt_coef(md.coef[idx], md.p_value[idx], decimals, fmt, show_stars));
+                if show_se {
+                    se_row.push(fmt_se(md.std_err[idx], decimals));
+                }
+            } else {
+                coef_row.push(String::new());
+                if show_se {
+                    se_row.push(String::new());
+                }
+            }
+        }
+        // Stats columns
+        for stat_name in stats_list {
+            let val = if stat_name == "n" {
+                md.get_stat("n").map(|v| format!("{}", v as i64)).unwrap_or_default()
+            } else {
+                md.get_stat(stat_name).map(|v| fmt_trim(v, decimals)).unwrap_or_default()
+            };
+            coef_row.push(val);
+            if show_se {
+                se_row.push(String::new());
+            }
+        }
+        tbl.body.push(coef_row);
+        if show_se {
+            tbl.body.push(se_row);
+        }
+    }
+    tbl
 }
 
 /// 3. haytex::summary(df, vars, opts)

@@ -25,6 +25,7 @@ mod helpers;
 mod models;
 mod tables;
 mod equations;
+mod format;
 
 // Re-export the main functions
 pub use tables::{table, regression, summary, correlation, codebook, anova, tests, diagnostics};

@@ -3,9 +3,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/Rust-2021-orange.svg)](https://www.rust-lang.org)
 
-LaTeX snippet generator plugin for [Hayashi](https://github.com/sheep-farm/hayashi) — publication-ready tables and equations from econometric models, DataFrames, matrices, and test results.
+LaTeX, HTML, RTF, and CSV snippet generator plugin for [Hayashi](https://github.com/sheep-farm/hayashi) — publication-ready tables and equations from econometric models, DataFrames, matrices, and test results.
 
-Native Rust plugin. All functions return `String` containing LaTeX code (no `\documentclass`, no preamble — just snippets ready to paste into a `.tex` file).
+Native Rust plugin. All functions return `String` containing markup code (no `\documentclass`, no preamble — just snippets ready to paste into a `.tex` file, `.html` file, or `.csv`).
 
 ## Install
 
@@ -65,28 +65,43 @@ let tex = haytex::table(df, {"caption": "My Data", "label": "tab:mydata", "decim
 
 #### `haytex::regression(models, opts)`
 
-Multiple models side by side — publication-ready regression table with coefficients, standard errors in parentheses, significance stars, and fit statistics.
+Multiple models side by side or transposed — publication-ready regression table with coefficients, standard errors in parentheses, significance stars, and fit statistics. Supports LaTeX, HTML, RTF, and CSV output.
 
 ```
+// Standard: models in columns
 let tex = haytex::regression([m1, m2, m3], {
     "title": "Results",
     "labels": {"mpg": "MPG", "weight": "Weight (lbs)"},
     "stars": true,
     "se": true,
     "decimals": 3,
-    "stats": ["n", "r2", "adj_r2", "aic"]
+    "stats": ["n", "r2", "adj_r2", "aic"],
+    "format": "latex"
 })
+
+// Transposed: models in rows
+let tex = haytex::regression([m1, m2, m3], {
+    "transpose": true,
+    "format": "html",
+    "title": "Models in Rows"
+})
+
+// CSV for spreadsheet import
+let csv = haytex::regression([m1, m2], {"format": "csv"})
+write(csv, "results.csv")
 ```
 
-| Option     | Type   | Default       | Description                              |
-|------------|--------|---------------|------------------------------------------|
-| `title`    | string | `""`          | Table caption                            |
-| `label`    | string | `""`          | LaTeX label                              |
-| `labels`   | dict   | `{}`          | Variable name → display label mapping    |
-| `stars`    | bool   | `true`        | Show significance stars                  |
-| `se`       | bool   | `true`        | Show standard errors in parentheses      |
-| `decimals` | int    | `3`           | Decimal places                           |
-| `stats`    | list   | `["n", "r2"]` | Fit statistics to display in footer      |
+| Option      | Type   | Default       | Description                              |
+|-------------|--------|---------------|------------------------------------------|
+| `title`     | string | `""`          | Table caption                            |
+| `label`     | string | `""`          | LaTeX label                              |
+| `labels`    | dict   | `{}`          | Variable name → display label mapping    |
+| `stars`     | bool   | `true`        | Show significance stars                  |
+| `se`        | bool   | `true`        | Show standard errors in parentheses      |
+| `decimals`  | int    | `3`           | Decimal places                           |
+| `stats`     | list   | `["n", "r2"]` | Fit statistics to display in footer      |
+| `format`    | string | `"latex"`     | Output format: `latex`, `html`, `rtf`, `csv` |
+| `transpose` | bool   | `false`       | Models in rows instead of columns        |
 
 Supported `stats` keys: `n`, `r2`, `adj_r2`, `pseudo_r2`, `aic`, `bic`, `log_lik`, `f_stat`, `sigma`, `j_stat`, `j_p_value`, `df_overid`, `sigma_u`, `sigma_e`, `theta`, `tau`, `alpha`, `rho`, `delta`, `deviance`, `qic`, `n_entities`, `n_groups`, `n_censored`, `sigma2`.
 
