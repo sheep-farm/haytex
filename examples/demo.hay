@@ -1,0 +1,76 @@
+// haytex demo — generate LaTeX tables and equations from Hayashi models.
+// Run: hay examples/demo.hay
+
+import("sheep-farm/haytex", as=haytex)
+
+load "https://www.stata-press.com/data/r9/auto.dta" as auto
+
+// ── OLS regression ──────────────────────────────────────────────────────────
+let m1 = ols(price ~ mpg + weight, auto)
+let m2 = ols(price ~ mpg + weight + length + displacement, auto)
+
+print("=== Regression table (2 models) ===")
+let tex_reg = haytex::regression([m1, m2], {
+    "title": "Determinants of Car Price",
+    "label": "tab:price",
+    "labels": {"mpg": "Mileage (mpg)", "weight": "Weight (lbs)", "length": "Length (in.)", "displacement": "Displacement"},
+    "decimals": 3,
+    "stats": ["n", "r2", "adj_r2", "aic"]
+})
+print(tex_reg)
+
+// ── Equations ───────────────────────────────────────────────────────────────
+print("=== Theoretical equation ===")
+print(haytex::equation(m1, {}))
+
+print("=== Estimated equation ===")
+print(haytex::equation(m1, {"estimated": true, "decimals": 3}))
+
+// ── Descriptive statistics ──────────────────────────────────────────────────
+print("=== Summary statistics ===")
+let tex_sum = haytex::summary(auto, ["price", "mpg", "weight", "length", "displacement"], {
+    "decimals": 2,
+    "title": "Descriptive Statistics",
+    "label": "tab:summary"
+})
+print(tex_sum)
+
+// ── Correlation matrix ──────────────────────────────────────────────────────
+print("=== Correlation matrix ===")
+let tex_cor = haytex::correlation(auto, ["price", "mpg", "weight", "length"], {
+    "decimals": 3,
+    "title": "Correlation Matrix"
+})
+print(tex_cor)
+
+// ── ANOVA ───────────────────────────────────────────────────────────────────
+print("=== ANOVA ===")
+print(haytex::anova(m1, {"decimals": 4}))
+
+// ── Codebook ────────────────────────────────────────────────────────────────
+print("=== Codebook ===")
+print(haytex::codebook(auto, {"title": "Variable Codebook"}))
+
+// ── Logit + marginal effects ────────────────────────────────────────────────
+load "https://www.stata-press.com/data/r8/cancer.dta" as cancer
+let mlogit = logit(died ~ age + drug, cancer)
+
+print("=== Marginal effects (logit) ===")
+print(haytex::margins(mlogit, {"decimals": 4, "title": "Marginal Effects"}))
+
+// ── Specification tests ─────────────────────────────────────────────────────
+print("=== Specification tests ===")
+let tex_tests = haytex::tests([
+    {"name": "Hausman", "stat": 12.3, "df": 5, "p": 0.03},
+    {"name": "Hansen J", "stat": 3.45, "df": 2, "p": 0.178},
+    {"name": "F-test", "stat": 8.92, "df": 3, "p": 0.001}
+], {"decimals": 3, "title": "Specification Tests"})
+print(tex_tests)
+
+// ── Matrix ──────────────────────────────────────────────────────────────────
+print("=== Matrix ===")
+print(haytex::matrix([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]], {"decimals": 2}))
+
+// ── Save to file ────────────────────────────────────────────────────────────
+write(tex_reg, "regression_table.tex")
+print("Saved regression_table.tex")
