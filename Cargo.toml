@@ -1,0 +1,15 @@
+[package]
+name = "haytex"
+version = "0.1.0"
+edition = "2021"
+description = "LaTeX snippet generator plugin for Hayashi — publication-ready tables and equations"
+license = "MIT"
+repository = "https://github.com/sheep-farm/haytex"
+keywords = ["hayashi", "latex", "econometrics", "tables", "plugin"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+hayashi-plugin-sdk = { git = "https://github.com/sheep-farm/hayashi-plugin-sdk.git", branch = "main" }
+serde_json = "1"
