@@ -1,0 +1,3 @@
+# Minimum Hayashi version required to install this plugin.
+# 0.2.9 is needed for model serialization (tidy/glance) used by haytex.
+min_version = "0.2.9"
