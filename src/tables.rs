@@ -1,4 +1,5 @@
 //! Table-generating functions: table, regression, summary, correlation,
+#![allow(dead_code, clippy::too_many_arguments, clippy::needless_range_loop)]
 //! codebook, anova, tests, diagnostics.
 
 use crate::helpers::*;
@@ -55,7 +56,7 @@ pub fn table(
 
     s.push_str("\\bottomrule\n");
     s.push_str(&format!("\\end{{{env}}}\n"));
-    s.push_str(&wrap_table_end(&caption));
+    s.push_str(wrap_table_end(&caption));
     s
 }
 
@@ -314,7 +315,7 @@ pub fn summary(
     }
 
     s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(&wrap_table_end(&title));
+    s.push_str(wrap_table_end(&title));
     s
 }
 
@@ -409,7 +410,7 @@ pub fn correlation(
     }
 
     s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(&wrap_table_end(&title));
+    s.push_str(wrap_table_end(&title));
     s.push_str(star_legend());
     s
 }
@@ -458,7 +459,7 @@ pub fn codebook(
     }
 
     s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(&wrap_table_end(&title));
+    s.push_str(wrap_table_end(&title));
     s
 }
 
@@ -515,7 +516,7 @@ pub fn anova(
         fmt_trim(ss_total, decimals), n - 1
     ));
     s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(&wrap_table_end(&title));
+    s.push_str(wrap_table_end(&title));
     s
 }
 
@@ -559,7 +560,7 @@ pub fn tests(
     }
 
     s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(&wrap_table_end(&title));
+    s.push_str(wrap_table_end(&title));
     s.push_str(star_legend());
     s
 }
@@ -597,7 +598,7 @@ pub fn diagnostics(
     }
 
     s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(&wrap_table_end(&title));
+    s.push_str(wrap_table_end(&title));
     let _ = decimals; // reserved for future use when tests are computed
     s
 }
@@ -649,5 +650,37 @@ fn stat_label(name: &str) -> String {
         "n_censored" => "Censored".to_string(),
         "sigma2" => "$\\sigma^2$".to_string(),
         _ => name.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── table — saída LaTeX mínima ────────────────────────────────────────────
+
+    #[test]
+    fn test_table_nil_returns_error_comment() {
+        // DfData::from_value retorna Err para um valor que não seja DataFrame;
+        // a função deve retornar "% Error: ..." sem panic.
+        let out = __hayashi_impl_table(HayashiValue::Nil, HashMap::new());
+        assert!(out.starts_with("% Error:"), "esperado comentário de erro, obteve: {out}");
+    }
+
+    #[test]
+    fn test_table_dict_df_produces_latex() {
+        // DataFrame mínimo como Dict de listas de Float
+        let mut df: HashMap<String, HayashiValue> = HashMap::new();
+        df.insert("x".into(), HayashiValue::List(vec![
+            HayashiValue::Float(1.0),
+            HayashiValue::Float(2.0),
+        ]));
+        df.insert("y".into(), HayashiValue::List(vec![
+            HayashiValue::Float(3.0),
+            HayashiValue::Float(4.0),
+        ]));
+        let out = __hayashi_impl_table(HayashiValue::Dict(df), HashMap::new());
+        assert!(out.contains("\\toprule"),    "falta \\toprule: {out}");
+        assert!(out.contains("\\bottomrule"), "falta \\bottomrule: {out}");
     }
 }

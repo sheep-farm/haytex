@@ -2,3 +2,6 @@
 *.so
 *.dll
 *.dylib
+# arquivos gerados por execução local
+*.tex
+test*.hay

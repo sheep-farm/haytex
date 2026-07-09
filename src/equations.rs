@@ -1,4 +1,5 @@
 //! Equation and matrix functions: equation, matrix, margins, forecast.
+#![allow(dead_code, clippy::too_many_arguments, clippy::needless_range_loop)]
 
 use crate::helpers::*;
 use crate::models::ModelData;
@@ -165,7 +166,7 @@ pub fn margins(
     }
 
     s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(&wrap_table_end(&title));
+    s.push_str(wrap_table_end(&title));
     s.push_str(star_legend());
     s
 }
@@ -224,7 +225,7 @@ pub fn forecast(
     }
 
     s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(&wrap_table_end(&title));
+    s.push_str(wrap_table_end(&title));
     s
 }
 

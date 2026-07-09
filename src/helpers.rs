@@ -1,4 +1,5 @@
 //! Internal helper functions for formatting numbers and strings in LaTeX.
+#![allow(dead_code, clippy::too_many_arguments, clippy::needless_range_loop)]
 
 use hayashi_plugin_sdk::value::HayashiValue;
 use std::collections::HashMap;

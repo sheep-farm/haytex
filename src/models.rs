@@ -1,4 +1,5 @@
 //! Model extraction utilities.
+#![allow(dead_code, clippy::too_many_arguments, clippy::needless_range_loop)]
 //!
 //! When Hayashi passes a model to a native plugin, it serializes it as a
 //! `HayashiValue::Dict` with fields like `variable`, `coef`, `std_err`,
@@ -40,7 +41,7 @@ impl ModelData {
         let variables = extract_str_list(map, "variable");
         let coef = extract_f64_list(map, "coef");
         let std_err = extract_f64_list(map, "std_err");
-        let stat = extract_f64_list(map, "t")
+        let _stat = extract_f64_list(map, "t")
             .into_iter()
             .chain(extract_f64_list(map, "z"))
             .collect::<Vec<_>>();
@@ -181,30 +182,27 @@ impl DfData {
                 continue;
             }
             columns.push(k.clone());
-            match v {
-                HayashiValue::List(lst) => {
-                    let all_numeric = lst.iter().all(|item| {
-                        matches!(item, HayashiValue::Float(_) | HayashiValue::Int(_) | HayashiValue::Nil)
-                    });
-                    if all_numeric {
-                        let floats: Vec<f64> = lst.iter()
-                            .map(|item| val_as_f64(item).unwrap_or(f64::NAN))
-                            .collect();
-                        data.insert(k.clone(), floats);
-                    } else {
-                        let strings: Vec<String> = lst.iter()
-                            .map(|item| match item {
-                                HayashiValue::Str(s) => s.clone(),
-                                HayashiValue::Float(f) => crate::helpers::fmt_trim(*f, 4),
-                                HayashiValue::Int(i) => i.to_string(),
-                                HayashiValue::Nil => "".to_string(),
-                                _ => format!("{:?}", item),
-                            })
-                            .collect();
-                        data_str.insert(k.clone(), strings);
-                    }
+            if let HayashiValue::List(lst) = v {
+                let all_numeric = lst.iter().all(|item| {
+                    matches!(item, HayashiValue::Float(_) | HayashiValue::Int(_) | HayashiValue::Nil)
+                });
+                if all_numeric {
+                    let floats: Vec<f64> = lst.iter()
+                        .map(|item| val_as_f64(item).unwrap_or(f64::NAN))
+                        .collect();
+                    data.insert(k.clone(), floats);
+                } else {
+                    let strings: Vec<String> = lst.iter()
+                        .map(|item| match item {
+                            HayashiValue::Str(s) => s.clone(),
+                            HayashiValue::Float(f) => crate::helpers::fmt_trim(*f, 4),
+                            HayashiValue::Int(i) => i.to_string(),
+                            HayashiValue::Nil => "".to_string(),
+                            _ => format!("{:?}", item),
+                        })
+                        .collect();
+                    data_str.insert(k.clone(), strings);
                 }
-                _ => {}
             }
         }
         columns.sort();
@@ -213,7 +211,7 @@ impl DfData {
 
     fn from_arrow(array: &ArrayRef) -> Result<Self, String> {
         use hayashi_plugin_sdk::arrow::datatypes::DataType;
-        use hayashi_plugin_sdk::arrow::array::{AsArray, StructArray};
+        use hayashi_plugin_sdk::arrow::array::StructArray;
 
         // DataFrame comes as a StructArray
         let struct_array = array.as_any().downcast_ref::<StructArray>()

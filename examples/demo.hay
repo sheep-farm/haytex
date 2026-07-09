@@ -18,6 +18,7 @@ let tex_reg = haytex::regression([m1, m2], {
     "stats": ["n", "r2", "adj_r2", "aic"]
 })
 print(tex_reg)
+write(tex_reg, "tex_reg.tex")
 
 // ── Equations ───────────────────────────────────────────────────────────────
 print("=== Theoretical equation ===")
@@ -34,6 +35,7 @@ let tex_sum = haytex::summary(auto, ["price", "mpg", "weight", "length", "displa
     "label": "tab:summary"
 })
 print(tex_sum)
+write(tex_sum, "text_sum.tex")
 
 // ── Correlation matrix ──────────────────────────────────────────────────────
 print("=== Correlation matrix ===")
@@ -42,6 +44,7 @@ let tex_cor = haytex::correlation(auto, ["price", "mpg", "weight", "length"], {
     "title": "Correlation Matrix"
 })
 print(tex_cor)
+write(tex_cor, "tex_cor.tex")
 
 // ── ANOVA ───────────────────────────────────────────────────────────────────
 print("=== ANOVA ===")
