@@ -368,7 +368,7 @@ checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 [[package]]
 name = "hayashi-plugin-sdk"
 version = "0.1.0"
-source = "git+https://github.com/sheep-farm/hayashi-plugin-sdk.git?branch=main#410d148bbf317c68ab4d23166132d47fe552e907"
+source = "git+https://github.com/sheep-farm/hayashi-plugin-sdk.git?branch=main#71a38519c844344778fbe77f8deaafebe978e4dc"
 dependencies = [
  "arrow",
  "hayashi-plugin-sdk-macros",
@@ -378,7 +378,7 @@ dependencies = [
 [[package]]
 name = "hayashi-plugin-sdk-macros"
 version = "0.1.0"
-source = "git+https://github.com/sheep-farm/hayashi-plugin-sdk.git?branch=main#410d148bbf317c68ab4d23166132d47fe552e907"
+source = "git+https://github.com/sheep-farm/hayashi-plugin-sdk.git?branch=main#71a38519c844344778fbe77f8deaafebe978e4dc"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -387,7 +387,7 @@ dependencies = [
 
 [[package]]
 name = "haytex"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
  "hayashi-plugin-sdk",
 ]
