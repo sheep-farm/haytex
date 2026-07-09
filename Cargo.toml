@@ -1,6 +1,6 @@
 [package]
 name = "haytex"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 description = "LaTeX snippet generator plugin for Hayashi — publication-ready tables and equations"
 license = "MIT"
