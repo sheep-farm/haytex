@@ -132,17 +132,16 @@ pub fn opt_str_list(opts: &HashMap<String, HayashiValue>, key: &str) -> Vec<Stri
 /// Get a dict of variable labels from opts.
 pub fn opt_labels(opts: &HashMap<String, HayashiValue>, key: &str) -> HashMap<String, String> {
     match opts.get(key) {
-        Some(HayashiValue::Dict(d)) => {
-            d.iter()
-                .filter_map(|(k, v)| {
-                    if let HayashiValue::Str(s) = v {
-                        Some((k.clone(), s.clone()))
-                    } else {
-                        None
-                    }
-                })
-                .collect()
-        }
+        Some(HayashiValue::Dict(d)) => d
+            .iter()
+            .filter_map(|(k, v)| {
+                if let HayashiValue::Str(s) = v {
+                    Some((k.clone(), s.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect(),
         _ => HashMap::new(),
     }
 }

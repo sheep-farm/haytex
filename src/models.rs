@@ -6,8 +6,8 @@
 //! `p_value`, `r2`, `n`, etc. This module provides a typed wrapper.
 
 use crate::helpers::val_as_f64;
-use hayashi_plugin_sdk::value::HayashiValue;
 use hayashi_plugin_sdk::arrow::array::{Array, ArrayRef};
+use hayashi_plugin_sdk::value::HayashiValue;
 use std::collections::HashMap;
 /// Extracted model data for LaTeX generation.
 pub struct ModelData {
@@ -15,7 +15,7 @@ pub struct ModelData {
     pub variables: Vec<String>,
     pub coef: Vec<f64>,
     pub std_err: Vec<f64>,
-    pub stat: Vec<f64>,      // t or z values
+    pub stat: Vec<f64>, // t or z values
     pub p_value: Vec<f64>,
     pub conf_low: Vec<f64>,
     pub conf_high: Vec<f64>,
@@ -27,10 +27,7 @@ impl ModelData {
     pub fn from_value(val: &HayashiValue) -> Result<Self, String> {
         let map = match val {
             HayashiValue::Dict(d) => d,
-            other => return Err(format!(
-                "expected model (dict), got {}",
-                other.type_name()
-            )),
+            other => return Err(format!("expected model (dict), got {}", other.type_name())),
         };
 
         let model_type = match map.get("__model_type__") {
@@ -58,9 +55,16 @@ impl ModelData {
         // Extract all scalar fit statistics
         let mut fit = HashMap::new();
         for (k, v) in map.iter() {
-            if k == "__model_type__" || k == "variable" || k == "coef"
-                || k == "std_err" || k == "t" || k == "z" || k == "p_value"
-                || k == "conf_low" || k == "conf_high" {
+            if k == "__model_type__"
+                || k == "variable"
+                || k == "coef"
+                || k == "std_err"
+                || k == "t"
+                || k == "z"
+                || k == "p_value"
+                || k == "conf_low"
+                || k == "conf_high"
+            {
                 continue;
             }
             if let Some(f) = val_as_f64(v) {
@@ -109,7 +113,10 @@ impl ModelData {
 
     /// Get R² (handles r2, pseudo_r2).
     pub fn r_squared(&self) -> Option<f64> {
-        self.fit.get("r2").copied().or_else(|| self.fit.get("pseudo_r2").copied())
+        self.fit
+            .get("r2")
+            .copied()
+            .or_else(|| self.fit.get("pseudo_r2").copied())
     }
 
     /// Get a fit statistic by name.
@@ -120,25 +127,23 @@ impl ModelData {
 
 fn extract_str_list(map: &HashMap<String, HayashiValue>, key: &str) -> Vec<String> {
     match map.get(key) {
-        Some(HayashiValue::List(lst)) => {
-            lst.iter()
-                .map(|v| match v {
-                    HayashiValue::Str(s) => s.clone(),
-                    _ => format!("{:?}", v),
-                })
-                .collect()
-        }
+        Some(HayashiValue::List(lst)) => lst
+            .iter()
+            .map(|v| match v {
+                HayashiValue::Str(s) => s.clone(),
+                _ => format!("{:?}", v),
+            })
+            .collect(),
         _ => Vec::new(),
     }
 }
 
 fn extract_f64_list(map: &HashMap<String, HayashiValue>, key: &str) -> Vec<f64> {
     match map.get(key) {
-        Some(HayashiValue::List(lst)) => {
-            lst.iter()
-                .map(|v| val_as_f64(v).unwrap_or(f64::NAN))
-                .collect()
-        }
+        Some(HayashiValue::List(lst)) => lst
+            .iter()
+            .map(|v| val_as_f64(v).unwrap_or(f64::NAN))
+            .collect(),
         _ => Vec::new(),
     }
 }
@@ -160,8 +165,9 @@ impl DfData {
             HayashiValue::Arrow(array_ptr, schema_ptr) => {
                 // Import the Arrow array
                 let array_ref = <ArrayRef as hayashi_plugin_sdk::value::FromHayashi>::from_hayashi(
-                    HayashiValue::Arrow(*array_ptr, *schema_ptr)
-                ).map_err(|e| format!("failed to import Arrow array: {e}"))?;
+                    HayashiValue::Arrow(*array_ptr, *schema_ptr),
+                )
+                .map_err(|e| format!("failed to import Arrow array: {e}"))?;
                 Self::from_arrow(&array_ref)
             }
             other => Err(format!(
@@ -184,15 +190,20 @@ impl DfData {
             columns.push(k.clone());
             if let HayashiValue::List(lst) = v {
                 let all_numeric = lst.iter().all(|item| {
-                    matches!(item, HayashiValue::Float(_) | HayashiValue::Int(_) | HayashiValue::Nil)
+                    matches!(
+                        item,
+                        HayashiValue::Float(_) | HayashiValue::Int(_) | HayashiValue::Nil
+                    )
                 });
                 if all_numeric {
-                    let floats: Vec<f64> = lst.iter()
+                    let floats: Vec<f64> = lst
+                        .iter()
                         .map(|item| val_as_f64(item).unwrap_or(f64::NAN))
                         .collect();
                     data.insert(k.clone(), floats);
                 } else {
-                    let strings: Vec<String> = lst.iter()
+                    let strings: Vec<String> = lst
+                        .iter()
                         .map(|item| match item {
                             HayashiValue::Str(s) => s.clone(),
                             HayashiValue::Float(f) => crate::helpers::fmt_trim(*f, 4),
@@ -206,15 +217,21 @@ impl DfData {
             }
         }
         columns.sort();
-        Ok(DfData { columns, data, data_str })
+        Ok(DfData {
+            columns,
+            data,
+            data_str,
+        })
     }
 
     fn from_arrow(array: &ArrayRef) -> Result<Self, String> {
-        use hayashi_plugin_sdk::arrow::datatypes::DataType;
         use hayashi_plugin_sdk::arrow::array::StructArray;
+        use hayashi_plugin_sdk::arrow::datatypes::DataType;
 
         // DataFrame comes as a StructArray
-        let struct_array = array.as_any().downcast_ref::<StructArray>()
+        let struct_array = array
+            .as_any()
+            .downcast_ref::<StructArray>()
             .ok_or_else(|| "expected StructArray from DataFrame".to_string())?;
 
         let fields = struct_array.fields();
@@ -229,34 +246,70 @@ impl DfData {
 
             match col_array.data_type() {
                 DataType::Float64 => {
-                    let arr = col_array.as_any().downcast_ref::<hayashi_plugin_sdk::arrow::array::Float64Array>()
+                    let arr = col_array
+                        .as_any()
+                        .downcast_ref::<hayashi_plugin_sdk::arrow::array::Float64Array>()
                         .ok_or_else(|| "failed to downcast Float64Array".to_string())?;
                     let vals: Vec<f64> = (0..arr.len())
-                        .map(|i| if arr.is_null(i) { f64::NAN } else { arr.value(i) })
+                        .map(|i| {
+                            if arr.is_null(i) {
+                                f64::NAN
+                            } else {
+                                arr.value(i)
+                            }
+                        })
                         .collect();
                     data.insert(col_name, vals);
                 }
                 DataType::Int64 => {
-                    let arr = col_array.as_any().downcast_ref::<hayashi_plugin_sdk::arrow::array::Int64Array>()
+                    let arr = col_array
+                        .as_any()
+                        .downcast_ref::<hayashi_plugin_sdk::arrow::array::Int64Array>()
                         .ok_or_else(|| "failed to downcast Int64Array".to_string())?;
                     let vals: Vec<f64> = (0..arr.len())
-                        .map(|i| if arr.is_null(i) { f64::NAN } else { arr.value(i) as f64 })
+                        .map(|i| {
+                            if arr.is_null(i) {
+                                f64::NAN
+                            } else {
+                                arr.value(i) as f64
+                            }
+                        })
                         .collect();
                     data.insert(col_name, vals);
                 }
                 DataType::Boolean => {
-                    let arr = col_array.as_any().downcast_ref::<hayashi_plugin_sdk::arrow::array::BooleanArray>()
+                    let arr = col_array
+                        .as_any()
+                        .downcast_ref::<hayashi_plugin_sdk::arrow::array::BooleanArray>()
                         .ok_or_else(|| "failed to downcast BooleanArray".to_string())?;
                     let vals: Vec<f64> = (0..arr.len())
-                        .map(|i| if arr.is_null(i) { f64::NAN } else { if arr.value(i) { 1.0 } else { 0.0 } })
+                        .map(|i| {
+                            if arr.is_null(i) {
+                                f64::NAN
+                            } else {
+                                if arr.value(i) {
+                                    1.0
+                                } else {
+                                    0.0
+                                }
+                            }
+                        })
                         .collect();
                     data.insert(col_name, vals);
                 }
                 DataType::Utf8 => {
-                    let arr = col_array.as_any().downcast_ref::<hayashi_plugin_sdk::arrow::array::StringArray>()
+                    let arr = col_array
+                        .as_any()
+                        .downcast_ref::<hayashi_plugin_sdk::arrow::array::StringArray>()
                         .ok_or_else(|| "failed to downcast StringArray".to_string())?;
                     let vals: Vec<String> = (0..arr.len())
-                        .map(|i| if arr.is_null(i) { String::new() } else { arr.value(i).to_string() })
+                        .map(|i| {
+                            if arr.is_null(i) {
+                                String::new()
+                            } else {
+                                arr.value(i).to_string()
+                            }
+                        })
                         .collect();
                     data_str.insert(col_name, vals);
                 }
@@ -269,12 +322,17 @@ impl DfData {
             }
         }
         columns.sort();
-        Ok(DfData { columns, data, data_str })
+        Ok(DfData {
+            columns,
+            data,
+            data_str,
+        })
     }
 
     /// Get a numeric column.
     pub fn get_col(&self, name: &str) -> Result<&Vec<f64>, String> {
-        self.data.get(name)
+        self.data
+            .get(name)
             .ok_or_else(|| format!("column '{}' not found or not numeric", name))
     }
 
@@ -285,7 +343,10 @@ impl DfData {
 
     /// Number of rows (from first column).
     pub fn nrow(&self) -> usize {
-        self.data.values().next().map(|v| v.len())
+        self.data
+            .values()
+            .next()
+            .map(|v| v.len())
             .or_else(|| self.data_str.values().next().map(|v| v.len()))
             .unwrap_or(0)
     }

@@ -3,7 +3,7 @@
 //! Each renderer takes a generic table structure (header rows + body rows
 //! + optional footer) and produces a string in the target format.
 
-use crate::helpers::{esc, join, stars, fmt_trim};
+use crate::helpers::{esc, fmt_trim, join, stars};
 
 /// Output format enum.
 #[derive(Clone, Copy, PartialEq)]
@@ -32,7 +32,10 @@ impl Format {
                 .replace('&', "&amp;")
                 .replace('<', "&lt;")
                 .replace('>', "&gt;"),
-            Format::Rtf => s.replace('\\', "\\\\").replace('{', "\\{").replace('}', "\\}"),
+            Format::Rtf => s
+                .replace('\\', "\\\\")
+                .replace('{', "\\{")
+                .replace('}', "\\}"),
             Format::Csv => s.replace('"', "\"\""),
         }
     }
@@ -43,27 +46,33 @@ impl Format {
         let mut rest = s;
         loop {
             if let Some(start) = rest.find("<sup>") {
-                result.push_str(&rest[..start]
-                    .replace('&', "&amp;")
-                    .replace('<', "&lt;")
-                    .replace('>', "&gt;"));
+                result.push_str(
+                    &rest[..start]
+                        .replace('&', "&amp;")
+                        .replace('<', "&lt;")
+                        .replace('>', "&gt;"),
+                );
                 if let Some(end) = rest[start..].find("</sup>") {
                     // </sup> is 6 chars
                     let sup_end = start + end + 6;
                     result.push_str(&rest[start..sup_end]);
                     rest = &rest[sup_end..];
                 } else {
-                    result.push_str(&rest[start..]
-                        .replace('&', "&amp;")
-                        .replace('<', "&lt;")
-                        .replace('>', "&gt;"));
+                    result.push_str(
+                        &rest[start..]
+                            .replace('&', "&amp;")
+                            .replace('<', "&lt;")
+                            .replace('>', "&gt;"),
+                    );
                     break;
                 }
             } else {
-                result.push_str(&rest
-                    .replace('&', "&amp;")
-                    .replace('<', "&lt;")
-                    .replace('>', "&gt;"));
+                result.push_str(
+                    &rest
+                        .replace('&', "&amp;")
+                        .replace('<', "&lt;")
+                        .replace('>', "&gt;"),
+                );
                 break;
             }
         }
@@ -78,7 +87,13 @@ impl Format {
         let s = stars(p);
         match self {
             Format::Latex | Format::Rtf => s.to_string(),
-            Format::Html => if s.is_empty() { String::new() } else { format!("<sup>{}</sup>", s) },
+            Format::Html => {
+                if s.is_empty() {
+                    String::new()
+                } else {
+                    format!("<sup>{}</sup>", s)
+                }
+            }
             Format::Csv => s.to_string(),
         }
     }
@@ -86,8 +101,13 @@ impl Format {
     /// Star legend footer for this format.
     pub fn star_legend(&self) -> String {
         match self {
-            Format::Latex => "\\par\\vspace{2pt}\n\\footnotesize \\*** p<0.01, ** p<0.05, * p<0.1\n".to_string(),
-            Format::Html => "<p style=\"font-size:0.8em\">*** p&lt;0.01, ** p&lt;0.05, * p&lt;0.1</p>\n".to_string(),
+            Format::Latex => {
+                "\\par\\vspace{2pt}\n\\footnotesize \\*** p<0.01, ** p<0.05, * p<0.1\n".to_string()
+            }
+            Format::Html => {
+                "<p style=\"font-size:0.8em\">*** p&lt;0.01, ** p&lt;0.05, * p&lt;0.1</p>\n"
+                    .to_string()
+            }
             Format::Rtf => "\\par *** p<0.01, ** p<0.05, * p<0.1\\par\n".to_string(),
             Format::Csv => "*** p<0.01, ** p<0.05, * p<0.1\n".to_string(),
         }
@@ -178,7 +198,10 @@ impl Table {
         let mut s = String::new();
         s.push_str("<table>\n");
         if !self.caption.is_empty() {
-            s.push_str(&format!("<caption>{}</caption>\n", fmt.esc_cell(&self.caption)));
+            s.push_str(&format!(
+                "<caption>{}</caption>\n",
+                fmt.esc_cell(&self.caption)
+            ));
         }
         if !self.headers.is_empty() {
             s.push_str("<thead>\n");
@@ -220,7 +243,10 @@ impl Table {
         let mut s = String::new();
         s.push_str("{\\rtf1\\ansi\n");
         if !self.caption.is_empty() {
-            s.push_str(&format!("\\par\\b {}\\b0\\par\n", fmt.esc_cell(&self.caption)));
+            s.push_str(&format!(
+                "\\par\\b {}\\b0\\par\n",
+                fmt.esc_cell(&self.caption)
+            ));
         }
         let ncols = self.align.len();
         let page_w = 9000;
@@ -258,21 +284,24 @@ impl Table {
     fn render_csv(&self, fmt: Format) -> String {
         let mut s = String::new();
         for row in &self.headers {
-            let cells: Vec<String> = row.iter()
+            let cells: Vec<String> = row
+                .iter()
                 .map(|c| format!("\"{}\"", fmt.esc_cell(c)))
                 .collect();
             s.push_str(&cells.join(","));
             s.push('\n');
         }
         for row in &self.body {
-            let cells: Vec<String> = row.iter()
+            let cells: Vec<String> = row
+                .iter()
                 .map(|c| format!("\"{}\"", fmt.esc_cell(c)))
                 .collect();
             s.push_str(&cells.join(","));
             s.push('\n');
         }
         for row in &self.footer {
-            let cells: Vec<String> = row.iter()
+            let cells: Vec<String> = row
+                .iter()
                 .map(|c| format!("\"{}\"", fmt.esc_cell(c)))
                 .collect();
             s.push_str(&cells.join(","));

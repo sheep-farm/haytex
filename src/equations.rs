@@ -10,10 +10,7 @@ use std::collections::HashMap;
 /// Formula → LaTeX equation. With estimated=true, fills coefficients.
 /// opts: estimated=false, decimals=3
 #[hayashi_fn]
-pub fn equation(
-    model: HayashiValue,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn equation(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
     let md = match ModelData::from_value(&model) {
         Ok(m) => m,
         Err(e) => return format!("% Error: {e}"),
@@ -79,10 +76,7 @@ pub fn equation(
 /// Matrix → bmatrix/pmatrix.
 /// opts: decimals=4, brackets="b" (b=brackets, p=parentheses)
 #[hayashi_fn]
-pub fn matrix(
-    mat: Vec<Vec<f64>>,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn matrix(mat: Vec<Vec<f64>>, opts: HashMap<String, HayashiValue>) -> String {
     let decimals = opt_int(&opts, "decimals", 4) as usize;
     let brackets = opt_str(&opts, "brackets", "b");
     let env = format!("{}matrix", brackets);
@@ -112,10 +106,7 @@ pub fn matrix(
 /// Computes marginal effects at the mean using the PDF.
 /// opts: decimals=4, title="", label=""
 #[hayashi_fn]
-pub fn margins(
-    model: HayashiValue,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn margins(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
     let md = match ModelData::from_value(&model) {
         Ok(m) => m,
         Err(e) => return format!("% Error: {e}"),
@@ -160,8 +151,12 @@ pub fn margins(
         let star = stars(p);
         s.push_str(&format!(
             "{} & {}{} & {} & {} & {} \\\\\n",
-            esc(vname), fmt_trim(me, decimals), star,
-            fmt_trim(se_me, decimals), fmt_trim(z, decimals), fmt_trim(p, decimals)
+            esc(vname),
+            fmt_trim(me, decimals),
+            star,
+            fmt_trim(se_me, decimals),
+            fmt_trim(z, decimals),
+            fmt_trim(p, decimals)
         ));
     }
 
@@ -175,11 +170,7 @@ pub fn margins(
 /// Forecast table with confidence intervals.
 /// opts: decimals=3, title="", label="", conf=0.95
 #[hayashi_fn]
-pub fn forecast(
-    model: HayashiValue,
-    h: i64,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn forecast(model: HayashiValue, h: i64, opts: HashMap<String, HayashiValue>) -> String {
     let md = match ModelData::from_value(&model) {
         Ok(m) => m,
         Err(e) => return format!("% Error: {e}"),
@@ -197,13 +188,19 @@ pub fn forecast(
         _ => 1.96,
     };
 
-    let sigma = md.get_stat("sigma").or_else(|| md.get_stat("sigma2").map(|s| s.sqrt())).unwrap_or(0.0);
+    let sigma = md
+        .get_stat("sigma")
+        .or_else(|| md.get_stat("sigma2").map(|s| s.sqrt()))
+        .unwrap_or(0.0);
     let const_idx = md.has_constant();
 
     // Simple static forecast: y_hat = sum of coef * x
     // Since we don't have future X values, we use the mean of coefficients as a proxy
     // This is a simplified forecast — real forecasting needs predict() from Hayashi
-    let base: f64 = md.coef.iter().enumerate()
+    let base: f64 = md
+        .coef
+        .iter()
+        .enumerate()
         .filter(|(i, _)| Some(*i) != const_idx)
         .map(|(_, c)| c)
         .sum::<f64>()
@@ -220,7 +217,10 @@ pub fn forecast(
         let hi = f + z * sigma;
         s.push_str(&format!(
             "{} & {} & {} & {} \\\\\n",
-            t, fmt_trim(f, decimals), fmt_trim(lo, decimals), fmt_trim(hi, decimals)
+            t,
+            fmt_trim(f, decimals),
+            fmt_trim(lo, decimals),
+            fmt_trim(hi, decimals)
         ));
     }
 
@@ -245,5 +245,9 @@ fn wrap_table_start(caption: &str, label: &str) -> String {
 }
 
 fn wrap_table_end(caption: &str) -> &'static str {
-    if caption.is_empty() { "" } else { "\\end{table}\n" }
+    if caption.is_empty() {
+        ""
+    } else {
+        "\\end{table}\n"
+    }
 }

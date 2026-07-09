@@ -2,9 +2,9 @@
 #![allow(dead_code, clippy::too_many_arguments, clippy::needless_range_loop)]
 //! codebook, anova, tests, diagnostics.
 
+use crate::format::{fmt_coef, fmt_se, Format, Table};
 use crate::helpers::*;
-use crate::models::{ModelData, DfData};
-use crate::format::{Format, Table, fmt_coef, fmt_se};
+use crate::models::{DfData, ModelData};
 use hayashi_plugin_sdk::{hayashi_fn, value::HayashiValue};
 use std::collections::HashMap;
 
@@ -12,10 +12,7 @@ use std::collections::HashMap;
 /// DataFrame → tabular with booktabs.
 /// opts: caption="", label="", decimals=3, longtable=false
 #[hayashi_fn]
-pub fn table(
-    df: HayashiValue,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn table(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
     let data = match DfData::from_value(&df) {
         Ok(d) => d,
         Err(e) => return format!("% Error: {e}"),
@@ -41,15 +38,19 @@ pub fn table(
 
     // Body
     for i in 0..nrows {
-        let row: Vec<String> = data.columns.iter().map(|col| {
-            if let Some(floats) = data.data.get(col) {
-                fmt_trim(floats[i], decimals)
-            } else if let Some(strings) = data.data_str.get(col) {
-                esc(&strings[i])
-            } else {
-                "---".to_string()
-            }
-        }).collect();
+        let row: Vec<String> = data
+            .columns
+            .iter()
+            .map(|col| {
+                if let Some(floats) = data.data.get(col) {
+                    fmt_trim(floats[i], decimals)
+                } else if let Some(strings) = data.data_str.get(col) {
+                    esc(&strings[i])
+                } else {
+                    "---".to_string()
+                }
+            })
+            .collect();
         s.push_str(&join(&row, " & "));
         s.push_str(" \\\\\n");
     }
@@ -65,10 +66,7 @@ pub fn table(
 /// opts: title="", label="", labels={}, stars=true, se=true, decimals=3,
 ///       stats=["n", "r2"], format="latex", transpose=false
 #[hayashi_fn]
-pub fn regression(
-    models: Vec<HayashiValue>,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn regression(models: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>) -> String {
     let decimals = opt_int(&opts, "decimals", 3) as usize;
     let show_stars = opt_bool(&opts, "stars", true);
     let show_se = opt_bool(&opts, "se", true);
@@ -80,15 +78,19 @@ pub fn regression(
 
     // Default stats
     let stats_list = match opts.get("stats") {
-        Some(HayashiValue::List(lst)) => lst.iter().map(|v| match v {
-            HayashiValue::Str(s) => s.clone(),
-            _ => format!("{:?}", v),
-        }).collect(),
+        Some(HayashiValue::List(lst)) => lst
+            .iter()
+            .map(|v| match v {
+                HayashiValue::Str(s) => s.clone(),
+                _ => format!("{:?}", v),
+            })
+            .collect(),
         _ => vec!["n".to_string(), "r2".to_string()],
     };
 
     // Extract model data
-    let model_data: Vec<ModelData> = models.iter()
+    let model_data: Vec<ModelData> = models
+        .iter()
         .filter_map(|m| ModelData::from_value(m).ok())
         .collect();
     let nmodels = model_data.len();
@@ -119,11 +121,28 @@ pub fn regression(
     };
 
     let mut tbl = if transpose {
-        build_regression_transposed(&model_data, &all_vars, &stats_list, &display_name,
-                                    decimals, show_stars, show_se, fmt)
+        build_regression_transposed(
+            &model_data,
+            &all_vars,
+            &stats_list,
+            &display_name,
+            decimals,
+            show_stars,
+            show_se,
+            fmt,
+        )
     } else {
-        build_regression_columns(&model_data, &all_vars, &stats_list, &display_name,
-                                 decimals, show_stars, show_se, fmt, nmodels)
+        build_regression_columns(
+            &model_data,
+            &all_vars,
+            &stats_list,
+            &display_name,
+            decimals,
+            show_stars,
+            show_se,
+            fmt,
+            nmodels,
+        )
     };
     tbl.caption = title;
     tbl.label = label;
@@ -159,7 +178,13 @@ fn build_regression_columns(
         let mut se_row = vec![String::new()];
         for md in model_data {
             if let Some(idx) = md.find_var(vname) {
-                coef_row.push(fmt_coef(md.coef[idx], md.p_value[idx], decimals, fmt, show_stars));
+                coef_row.push(fmt_coef(
+                    md.coef[idx],
+                    md.p_value[idx],
+                    decimals,
+                    fmt,
+                    show_stars,
+                ));
                 if show_se {
                     se_row.push(fmt_se(md.std_err[idx], decimals));
                 }
@@ -181,9 +206,13 @@ fn build_regression_columns(
         let mut row = vec![fmt.esc_cell(&stat_label(stat_name))];
         for md in model_data {
             let val = if stat_name == "n" {
-                md.get_stat("n").map(|v| format!("{}", v as i64)).unwrap_or_default()
+                md.get_stat("n")
+                    .map(|v| format!("{}", v as i64))
+                    .unwrap_or_default()
             } else {
-                md.get_stat(stat_name).map(|v| fmt_trim(v, decimals)).unwrap_or_default()
+                md.get_stat(stat_name)
+                    .map(|v| fmt_trim(v, decimals))
+                    .unwrap_or_default()
             };
             row.push(val);
         }
@@ -224,7 +253,13 @@ fn build_regression_transposed(
         let mut se_row = vec![String::new()];
         for vname in all_vars {
             if let Some(idx) = md.find_var(vname) {
-                coef_row.push(fmt_coef(md.coef[idx], md.p_value[idx], decimals, fmt, show_stars));
+                coef_row.push(fmt_coef(
+                    md.coef[idx],
+                    md.p_value[idx],
+                    decimals,
+                    fmt,
+                    show_stars,
+                ));
                 if show_se {
                     se_row.push(fmt_se(md.std_err[idx], decimals));
                 }
@@ -238,9 +273,13 @@ fn build_regression_transposed(
         // Stats columns
         for stat_name in stats_list {
             let val = if stat_name == "n" {
-                md.get_stat("n").map(|v| format!("{}", v as i64)).unwrap_or_default()
+                md.get_stat("n")
+                    .map(|v| format!("{}", v as i64))
+                    .unwrap_or_default()
             } else {
-                md.get_stat(stat_name).map(|v| fmt_trim(v, decimals)).unwrap_or_default()
+                md.get_stat(stat_name)
+                    .map(|v| fmt_trim(v, decimals))
+                    .unwrap_or_default()
             };
             coef_row.push(val);
             if show_se {
@@ -259,11 +298,7 @@ fn build_regression_transposed(
 /// Descriptive statistics table.
 /// opts: decimals=3, title="", label=""
 #[hayashi_fn]
-pub fn summary(
-    df: HayashiValue,
-    vars: Vec<String>,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn summary(df: HayashiValue, vars: Vec<String>, opts: HashMap<String, HayashiValue>) -> String {
     let data = match DfData::from_value(&df) {
         Ok(d) => d,
         Err(e) => return format!("% Error: {e}"),
@@ -288,13 +323,18 @@ pub fn summary(
         let vals: Vec<f64> = col.iter().copied().filter(|x| !x.is_nan()).collect();
         let nv = vals.len();
         if nv == 0 {
-            s.push_str(&format!("{} & 0 & --- & --- & --- & --- & --- & --- \\\\\n", esc(vname)));
+            s.push_str(&format!(
+                "{} & 0 & --- & --- & --- & --- & --- & --- \\\\\n",
+                esc(vname)
+            ));
             continue;
         }
         let mean = vals.iter().sum::<f64>() / nv as f64;
         let variance = if nv > 1 {
             vals.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / (nv - 1) as f64
-        } else { 0.0 };
+        } else {
+            0.0
+        };
         let sd = variance.sqrt();
         let mn = vals.iter().cloned().fold(f64::INFINITY, f64::min);
         let mx = vals.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
@@ -307,10 +347,14 @@ pub fn summary(
 
         s.push_str(&format!(
             "{} & {} & {} & {} & {} & {} & {} & {} \\\\\n",
-            esc(vname), nv,
-            fmt_trim(mean, decimals), fmt_trim(sd, decimals),
-            fmt_trim(mn, decimals), fmt_trim(q25, decimals),
-            fmt_trim(q50, decimals), fmt_trim(mx, decimals)
+            esc(vname),
+            nv,
+            fmt_trim(mean, decimals),
+            fmt_trim(sd, decimals),
+            fmt_trim(mn, decimals),
+            fmt_trim(q25, decimals),
+            fmt_trim(q50, decimals),
+            fmt_trim(mx, decimals)
         ));
     }
 
@@ -338,7 +382,8 @@ pub fn correlation(
     let nvars = vars.len();
 
     // Extract columns
-    let cols: Vec<Vec<f64>> = vars.iter()
+    let cols: Vec<Vec<f64>> = vars
+        .iter()
         .filter_map(|v| data.get_col(v).ok().cloned())
         .collect();
     if cols.len() != nvars {
@@ -346,9 +391,10 @@ pub fn correlation(
     }
 
     // Compute means
-    let means: Vec<f64> = cols.iter().map(|c| {
-        c.iter().sum::<f64>() / c.len() as f64
-    }).collect();
+    let means: Vec<f64> = cols
+        .iter()
+        .map(|c| c.iter().sum::<f64>() / c.len() as f64)
+        .collect();
 
     // Compute correlation matrix
     let n = cols[0].len();
@@ -377,7 +423,10 @@ pub fn correlation(
 
     let mut s = String::new();
     s.push_str(&wrap_table_start(&title, &label));
-    s.push_str(&format!("\\begin{{tabular}}{{l{}}}\n\\toprule\n", repeat("c", nvars)));
+    s.push_str(&format!(
+        "\\begin{{tabular}}{{l{}}}\n\\toprule\n",
+        repeat("c", nvars)
+    ));
 
     // Header
     let hdr: Vec<String> = std::iter::once(String::new())
@@ -397,11 +446,18 @@ pub fn correlation(
                 // Approximate p-value via t-statistic
                 let star = if i != j && n > 2 {
                     let tstat = r.abs() * ((n - 2) as f64 / (1.0 - r * r)).sqrt();
-                    if tstat > 2.576 { "***" }
-                    else if tstat > 1.96 { "**" }
-                    else if tstat > 1.645 { "*" }
-                    else { "" }
-                } else { "" };
+                    if tstat > 2.576 {
+                        "***"
+                    } else if tstat > 1.96 {
+                        "**"
+                    } else if tstat > 1.645 {
+                        "*"
+                    } else {
+                        ""
+                    }
+                } else {
+                    ""
+                };
                 row.push(format!("{}{}", fmt_trim(r, decimals), star));
             }
         }
@@ -419,10 +475,7 @@ pub fn correlation(
 /// Variable description table for appendix.
 /// opts: title="", label=""
 #[hayashi_fn]
-pub fn codebook(
-    df: HayashiValue,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn codebook(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
     let data = match DfData::from_value(&df) {
         Ok(d) => d,
         Err(e) => return format!("% Error: {e}"),
@@ -439,14 +492,16 @@ pub fn codebook(
         let n = data.nrow();
         let (n_unique, missing, col_type) = if let Some(floats) = data.data.get(col) {
             let missing = floats.iter().filter(|x| x.is_nan()).count();
-            let unique: std::collections::HashSet<u64> = floats.iter()
+            let unique: std::collections::HashSet<u64> = floats
+                .iter()
                 .filter(|x| !x.is_nan())
                 .map(|x| x.to_bits())
                 .collect();
             (unique.len(), missing, "numeric")
         } else if let Some(strings) = data.data_str.get(col) {
             let missing = strings.iter().filter(|s| s.is_empty()).count();
-            let unique: std::collections::HashSet<&String> = strings.iter().filter(|s| !s.is_empty()).collect();
+            let unique: std::collections::HashSet<&String> =
+                strings.iter().filter(|s| !s.is_empty()).collect();
             (unique.len(), missing, "string")
         } else {
             (0, 0, "unknown")
@@ -454,7 +509,11 @@ pub fn codebook(
 
         s.push_str(&format!(
             "{} & {} & {} & {} & {} \\\\\n",
-            esc(col), col_type, n, n_unique, missing
+            esc(col),
+            col_type,
+            n,
+            n_unique,
+            missing
         ));
     }
 
@@ -467,10 +526,7 @@ pub fn codebook(
 /// ANOVA table: SS, df, MS, F, p.
 /// opts: decimals=4, title="", label=""
 #[hayashi_fn]
-pub fn anova(
-    model: HayashiValue,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn anova(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
     let md = match ModelData::from_value(&model) {
         Ok(m) => m,
         Err(e) => return format!("% Error: {e}"),
@@ -491,7 +547,9 @@ pub fn anova(
     let ss_resid = sigma * sigma * df_resid as f64;
     let ss_model = if r2.is_finite() && (1.0 - r2).abs() > 1e-12 {
         r2 * ss_resid * df_model as f64 / ((1.0 - r2) * df_resid as f64)
-    } else { f64::NAN };
+    } else {
+        f64::NAN
+    };
     let ss_total = ss_model + ss_resid;
     let ms_model = ss_model / df_model as f64;
     let ms_resid = ss_resid / df_resid as f64;
@@ -502,18 +560,23 @@ pub fn anova(
     s.push_str("Source & SS & df & MS & F & p \\\\\n\\midrule\n");
     s.push_str(&format!(
         "Model & {} & {} & {} & {} & {} \\\\\n",
-        fmt_trim(ss_model, decimals), df_model,
+        fmt_trim(ss_model, decimals),
+        df_model,
         fmt_trim(ms_model, decimals),
-        fmt_trim(f_stat, decimals), fmt_trim(prob_f, decimals)
+        fmt_trim(f_stat, decimals),
+        fmt_trim(prob_f, decimals)
     ));
     s.push_str(&format!(
         "Residual & {} & {} & {} & & \\\\\n",
-        fmt_trim(ss_resid, decimals), df_resid, fmt_trim(ms_resid, decimals)
+        fmt_trim(ss_resid, decimals),
+        df_resid,
+        fmt_trim(ms_resid, decimals)
     ));
     s.push_str("\\midrule\n");
     s.push_str(&format!(
         "Total & {} & {} & & & \\\\\n",
-        fmt_trim(ss_total, decimals), n - 1
+        fmt_trim(ss_total, decimals),
+        n - 1
     ));
     s.push_str("\\bottomrule\n\\end{tabular}\n");
     s.push_str(wrap_table_end(&title));
@@ -525,10 +588,7 @@ pub fn anova(
 /// tests: list of dicts with name, stat, df, p
 /// opts: decimals=4, title="", label=""
 #[hayashi_fn]
-pub fn tests(
-    tests: Vec<HayashiValue>,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn tests(tests: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>) -> String {
     let decimals = opt_int(&opts, "decimals", 4) as usize;
     let title = opt_str(&opts, "title", "Specification Tests");
     let label = opt_str(&opts, "label", "");
@@ -554,7 +614,11 @@ pub fn tests(
             let star = stars(p);
             s.push_str(&format!(
                 "{} & {} & {} & {}{} \\\\\n",
-                name, fmt_trim(stat, decimals), df_val, fmt_trim(p, decimals), star
+                name,
+                fmt_trim(stat, decimals),
+                df_val,
+                fmt_trim(p, decimals),
+                star
             ));
         }
     }
@@ -570,10 +634,7 @@ pub fn tests(
 /// The user fills in the values from Hayashi's diagnostic functions.
 /// opts: decimals=4, title="", label=""
 #[hayashi_fn]
-pub fn diagnostics(
-    _model: HayashiValue,
-    opts: HashMap<String, HayashiValue>,
-) -> String {
+pub fn diagnostics(_model: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
     let decimals = opt_int(&opts, "decimals", 4) as usize;
     let title = opt_str(&opts, "title", "Diagnostic Tests");
     let label = opt_str(&opts, "label", "");
@@ -619,7 +680,11 @@ fn wrap_table_start(caption: &str, label: &str) -> String {
 }
 
 fn wrap_table_end(caption: &str) -> &'static str {
-    if caption.is_empty() { "" } else { "\\end{table}\n" }
+    if caption.is_empty() {
+        ""
+    } else {
+        "\\end{table}\n"
+    }
 }
 
 fn stat_label(name: &str) -> String {
@@ -664,23 +729,26 @@ mod tests {
         // DfData::from_value retorna Err para um valor que não seja DataFrame;
         // a função deve retornar "% Error: ..." sem panic.
         let out = __hayashi_impl_table(HayashiValue::Nil, HashMap::new());
-        assert!(out.starts_with("% Error:"), "esperado comentário de erro, obteve: {out}");
+        assert!(
+            out.starts_with("% Error:"),
+            "esperado comentário de erro, obteve: {out}"
+        );
     }
 
     #[test]
     fn test_table_dict_df_produces_latex() {
         // DataFrame mínimo como Dict de listas de Float
         let mut df: HashMap<String, HayashiValue> = HashMap::new();
-        df.insert("x".into(), HayashiValue::List(vec![
-            HayashiValue::Float(1.0),
-            HayashiValue::Float(2.0),
-        ]));
-        df.insert("y".into(), HayashiValue::List(vec![
-            HayashiValue::Float(3.0),
-            HayashiValue::Float(4.0),
-        ]));
+        df.insert(
+            "x".into(),
+            HayashiValue::List(vec![HayashiValue::Float(1.0), HayashiValue::Float(2.0)]),
+        );
+        df.insert(
+            "y".into(),
+            HayashiValue::List(vec![HayashiValue::Float(3.0), HayashiValue::Float(4.0)]),
+        );
         let out = __hayashi_impl_table(HayashiValue::Dict(df), HashMap::new());
-        assert!(out.contains("\\toprule"),    "falta \\toprule: {out}");
+        assert!(out.contains("\\toprule"), "falta \\toprule: {out}");
         assert!(out.contains("\\bottomrule"), "falta \\bottomrule: {out}");
     }
 }
