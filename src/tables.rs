@@ -5,38 +5,32 @@
 use crate::format::{fmt_coef, fmt_se, Format, Table};
 use crate::helpers::*;
 use crate::models::{DfData, ModelData};
-use hayashi_plugin_sdk::{hayashi_fn, value::HayashiValue};
+use hayashi_plugin_sdk::{hayashi_fn, value::HayashiValue, Plot};
 use std::collections::HashMap;
 
 /// 1. haytex::table(df, opts)
 /// DataFrame → tabular with booktabs.
-/// opts: caption="", label="", decimals=3, longtable=false
+/// opts: caption="", label="", decimals=3, longtable=false, format="latex"
 #[hayashi_fn]
-pub fn table(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
+pub fn table(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot {
     let data = match DfData::from_value(&df) {
         Ok(d) => d,
-        Err(e) => return format!("% Error: {e}"),
+        Err(e) => return Plot::latex(format!("% Error: {e}")),
     };
     let decimals = opt_int(&opts, "decimals", 3) as usize;
     let caption = opt_str(&opts, "caption", "");
     let label = opt_str(&opts, "label", "");
     let longtable = opt_bool(&opts, "longtable", false);
+    let fmt = Format::from_str(&opt_str(&opts, "format", "latex"));
     let ncols = data.columns.len();
     let nrows = data.nrow();
 
-    let env = if longtable { "longtable" } else { "tabular" };
-    let align = format!("l{}", repeat("r", ncols.saturating_sub(1)));
+    let mut tbl = Table::new(ncols, 'r');
+    if !data.columns.is_empty() {
+        tbl.align[0] = 'l';
+    }
+    tbl.headers.push(data.columns.iter().map(|c| esc(c)).collect());
 
-    let mut s = String::new();
-    s.push_str(&wrap_table_start(&caption, &label));
-    s.push_str(&format!("\\begin{{{env}}}{{{align}}}\n\\toprule\n"));
-
-    // Header
-    let hdr: Vec<String> = data.columns.iter().map(|c| esc(c)).collect();
-    s.push_str(&join(&hdr, " & "));
-    s.push_str(" \\\\\n\\midrule\n");
-
-    // Body
     for i in 0..nrows {
         let row: Vec<String> = data
             .columns
@@ -51,14 +45,15 @@ pub fn table(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
                 }
             })
             .collect();
-        s.push_str(&join(&row, " & "));
-        s.push_str(" \\\\\n");
+        tbl.body.push(row);
     }
 
-    s.push_str("\\bottomrule\n");
-    s.push_str(&format!("\\end{{{env}}}\n"));
-    s.push_str(wrap_table_end(&caption));
-    s
+    tbl.caption = caption;
+    tbl.label = label;
+    if longtable {
+        // longtable only makes sense for LaTeX; for HTML/others ignore
+    }
+    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
 }
 
 /// 2. haytex::regression(models, opts)
@@ -66,7 +61,7 @@ pub fn table(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
 /// opts: title="", label="", labels={}, stars=true, se=true, decimals=3,
 ///       stats=["n", "r2"], format="latex", transpose=false
 #[hayashi_fn]
-pub fn regression(models: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>) -> String {
+pub fn regression(models: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>) -> Plot {
     let decimals = opt_int(&opts, "decimals", 3) as usize;
     let show_stars = opt_bool(&opts, "stars", true);
     let show_se = opt_bool(&opts, "se", true);
@@ -95,7 +90,7 @@ pub fn regression(models: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>
         .collect();
     let nmodels = model_data.len();
     if nmodels == 0 {
-        return "% Error: no valid models".to_string();
+        return Plot::latex("% Error: no valid models".to_string());
     }
 
     // Collect all variable names (union, preserving order)
@@ -147,7 +142,7 @@ pub fn regression(models: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>
     tbl.caption = title;
     tbl.label = label;
     tbl.show_stars = show_stars;
-    tbl.render(fmt)
+    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
 }
 
 /// Standard layout: variables in rows, models in columns.
@@ -296,37 +291,55 @@ fn build_regression_transposed(
 
 /// 3. haytex::summary(df, vars, opts)
 /// Descriptive statistics table.
-/// opts: decimals=3, title="", label=""
+/// opts: decimals=3, title="", label="", format="latex"
 #[hayashi_fn]
-pub fn summary(df: HayashiValue, vars: Vec<String>, opts: HashMap<String, HayashiValue>) -> String {
+pub fn summary(df: HayashiValue, vars: Vec<String>, opts: HashMap<String, HayashiValue>) -> Plot {
     let data = match DfData::from_value(&df) {
         Ok(d) => d,
-        Err(e) => return format!("% Error: {e}"),
+        Err(e) => return Plot::latex(format!("% Error: {e}")),
     };
     let decimals = opt_int(&opts, "decimals", 3) as usize;
     let title = opt_str(&opts, "title", "");
     let label = opt_str(&opts, "label", "");
+    let fmt = Format::from_str(&opt_str(&opts, "format", "latex"));
 
-    let mut s = String::new();
-    s.push_str(&wrap_table_start(&title, &label));
-    s.push_str("\\begin{tabular}{lrrrrrrr}\n\\toprule\n");
-    s.push_str("Variable & N & Mean & Std.~Dev. & Min & p25 & p50 & Max \\\\\n\\midrule\n");
+    let mut tbl = Table::new(8, 'l');
+    tbl.headers.push(vec![
+        "Variable".into(),
+        "N".into(),
+        "Mean".into(),
+        "Std.~Dev.".into(),
+        "Min".into(),
+        "p25".into(),
+        "p50".into(),
+        "Max".into(),
+    ]);
+    tbl.align[0] = 'l';
+    for i in 1..8 {
+        tbl.align[i] = 'r';
+    }
 
     for vname in &vars {
         let col = match data.get_col(vname) {
             Ok(c) => c,
             Err(e) => {
-                s.push_str(&format!("% Error: {e}\n"));
+                tbl.body.push(vec![format!("% Error: {e}"), String::new(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()]);
                 continue;
             }
         };
         let vals: Vec<f64> = col.iter().copied().filter(|x| !x.is_nan()).collect();
         let nv = vals.len();
         if nv == 0 {
-            s.push_str(&format!(
-                "{} & 0 & --- & --- & --- & --- & --- & --- \\\\\n",
-                esc(vname)
-            ));
+            tbl.body.push(vec![
+                esc(vname),
+                "0".into(),
+                "---".into(),
+                "---".into(),
+                "---".into(),
+                "---".into(),
+                "---".into(),
+                "---".into(),
+            ]);
             continue;
         }
         let mean = vals.iter().sum::<f64>() / nv as f64;
@@ -345,40 +358,40 @@ pub fn summary(df: HayashiValue, vars: Vec<String>, opts: HashMap<String, Hayash
         let q25 = sorted[nv / 4];
         let q50 = sorted[nv / 2];
 
-        s.push_str(&format!(
-            "{} & {} & {} & {} & {} & {} & {} & {} \\\\\n",
+        tbl.body.push(vec![
             esc(vname),
-            nv,
+            nv.to_string(),
             fmt_trim(mean, decimals),
             fmt_trim(sd, decimals),
             fmt_trim(mn, decimals),
             fmt_trim(q25, decimals),
             fmt_trim(q50, decimals),
-            fmt_trim(mx, decimals)
-        ));
+            fmt_trim(mx, decimals),
+        ]);
     }
 
-    s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(wrap_table_end(&title));
-    s
+    tbl.caption = title;
+    tbl.label = label;
+    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
 }
 
 /// 6. haytex::correlation(df, vars, opts)
 /// Correlation matrix with stars.
-/// opts: decimals=3, title="", label=""
+/// opts: decimals=3, title="", label="", format="latex"
 #[hayashi_fn]
 pub fn correlation(
     df: HayashiValue,
     vars: Vec<String>,
     opts: HashMap<String, HayashiValue>,
-) -> String {
+) -> Plot {
     let data = match DfData::from_value(&df) {
         Ok(d) => d,
-        Err(e) => return format!("% Error: {e}"),
+        Err(e) => return Plot::latex(format!("% Error: {e}")),
     };
     let decimals = opt_int(&opts, "decimals", 3) as usize;
     let title = opt_str(&opts, "title", "");
     let label = opt_str(&opts, "label", "");
+    let fmt = Format::from_str(&opt_str(&opts, "format", "latex"));
     let nvars = vars.len();
 
     // Extract columns
@@ -387,7 +400,7 @@ pub fn correlation(
         .filter_map(|v| data.get_col(v).ok().cloned())
         .collect();
     if cols.len() != nvars {
-        return format!("% Error: could not extract all {} columns", nvars);
+        return Plot::latex(format!("% Error: could not extract all {} columns", nvars));
     }
 
     // Compute means
@@ -421,19 +434,14 @@ pub fn correlation(
         }
     }
 
-    let mut s = String::new();
-    s.push_str(&wrap_table_start(&title, &label));
-    s.push_str(&format!(
-        "\\begin{{tabular}}{{l{}}}\n\\toprule\n",
-        repeat("c", nvars)
-    ));
+    let ncols = 1 + nvars;
+    let mut tbl = Table::new(ncols, 'c');
+    tbl.align[0] = 'l';
 
     // Header
-    let hdr: Vec<String> = std::iter::once(String::new())
-        .chain((0..nvars).map(|j| format!("({})", j + 1)))
-        .collect();
-    s.push_str(&join(&hdr, " & "));
-    s.push_str(" \\\\\n\\midrule\n");
+    let mut hdr: Vec<String> = vec![String::new()];
+    hdr.extend((0..nvars).map(|j| format!("({})", j + 1)));
+    tbl.headers.push(hdr);
 
     // Lower triangle with stars
     for i in 0..nvars {
@@ -461,32 +469,36 @@ pub fn correlation(
                 row.push(format!("{}{}", fmt_trim(r, decimals), star));
             }
         }
-        s.push_str(&join(&row, " & "));
-        s.push_str(" \\\\\n");
+        tbl.body.push(row);
     }
 
-    s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(wrap_table_end(&title));
-    s.push_str(star_legend());
-    s
+    tbl.caption = title;
+    tbl.label = label;
+    tbl.show_stars = true;
+    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
 }
 
 /// 9. haytex::codebook(df, opts)
 /// Variable description table for appendix.
-/// opts: title="", label=""
+/// opts: title="", label="", format="latex"
 #[hayashi_fn]
-pub fn codebook(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
+pub fn codebook(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot {
     let data = match DfData::from_value(&df) {
         Ok(d) => d,
-        Err(e) => return format!("% Error: {e}"),
+        Err(e) => return Plot::latex(format!("% Error: {e}")),
     };
     let title = opt_str(&opts, "title", "Variable Codebook");
     let label = opt_str(&opts, "label", "");
+    let fmt = Format::from_str(&opt_str(&opts, "format", "latex"));
 
-    let mut s = String::new();
-    s.push_str(&wrap_table_start(&title, &label));
-    s.push_str("\\begin{tabular}{llrrr}\n\\toprule\n");
-    s.push_str("Variable & Type & N & Unique & Missing \\\\\n\\midrule\n");
+    let mut tbl = Table::new(5, 'l');
+    tbl.headers.push(vec![
+        "Variable".into(),
+        "Type".into(),
+        "N".into(),
+        "Unique".into(),
+        "Missing".into(),
+    ]);
 
     for col in &data.columns {
         let n = data.nrow();
@@ -507,33 +519,33 @@ pub fn codebook(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> String
             (0, 0, "unknown")
         };
 
-        s.push_str(&format!(
-            "{} & {} & {} & {} & {} \\\\\n",
+        tbl.body.push(vec![
             esc(col),
-            col_type,
-            n,
-            n_unique,
-            missing
-        ));
+            col_type.into(),
+            n.to_string(),
+            n_unique.to_string(),
+            missing.to_string(),
+        ]);
     }
 
-    s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(wrap_table_end(&title));
-    s
+    tbl.caption = title;
+    tbl.label = label;
+    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
 }
 
 /// 12. haytex::anova(model, opts)
 /// ANOVA table: SS, df, MS, F, p.
-/// opts: decimals=4, title="", label=""
+/// opts: decimals=4, title="", label="", format="latex"
 #[hayashi_fn]
-pub fn anova(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
+pub fn anova(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot {
     let md = match ModelData::from_value(&model) {
         Ok(m) => m,
-        Err(e) => return format!("% Error: {e}"),
+        Err(e) => return Plot::latex(format!("% Error: {e}")),
     };
     let decimals = opt_int(&opts, "decimals", 4) as usize;
     let title = opt_str(&opts, "title", "ANOVA");
     let label = opt_str(&opts, "label", "");
+    let fmt = Format::from_str(&opt_str(&opts, "format", "latex"));
 
     let n = md.n_obs().unwrap_or(0.0) as i64;
     let k = md.n_coef() as i64;
@@ -554,49 +566,63 @@ pub fn anova(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> String
     let ms_model = ss_model / df_model as f64;
     let ms_resid = ss_resid / df_resid as f64;
 
-    let mut s = String::new();
-    s.push_str(&wrap_table_start(&title, &label));
-    s.push_str("\\begin{tabular}{lrrrrr}\n\\toprule\n");
-    s.push_str("Source & SS & df & MS & F & p \\\\\n\\midrule\n");
-    s.push_str(&format!(
-        "Model & {} & {} & {} & {} & {} \\\\\n",
+    let mut tbl = Table::new(6, 'l');
+    tbl.headers.push(vec![
+        "Source".into(),
+        "SS".into(),
+        "df".into(),
+        "MS".into(),
+        "F".into(),
+        "p".into(),
+    ]);
+    tbl.body.push(vec![
+        "Model".into(),
         fmt_trim(ss_model, decimals),
-        df_model,
+        df_model.to_string(),
         fmt_trim(ms_model, decimals),
         fmt_trim(f_stat, decimals),
-        fmt_trim(prob_f, decimals)
-    ));
-    s.push_str(&format!(
-        "Residual & {} & {} & {} & & \\\\\n",
+        fmt_trim(prob_f, decimals),
+    ]);
+    tbl.body.push(vec![
+        "Residual".into(),
         fmt_trim(ss_resid, decimals),
-        df_resid,
-        fmt_trim(ms_resid, decimals)
-    ));
-    s.push_str("\\midrule\n");
-    s.push_str(&format!(
-        "Total & {} & {} & & & \\\\\n",
+        df_resid.to_string(),
+        fmt_trim(ms_resid, decimals),
+        String::new(),
+        String::new(),
+    ]);
+    tbl.body.push(vec![
+        "Total".into(),
         fmt_trim(ss_total, decimals),
-        n - 1
-    ));
-    s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(wrap_table_end(&title));
-    s
+        (n - 1).to_string(),
+        String::new(),
+        String::new(),
+        String::new(),
+    ]);
+
+    tbl.caption = title;
+    tbl.label = label;
+    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
 }
 
 /// 8. haytex::tests(tests, opts)
 /// Generic hypothesis test table.
 /// tests: list of dicts with name, stat, df, p
-/// opts: decimals=4, title="", label=""
+/// opts: decimals=4, title="", label="", format="latex"
 #[hayashi_fn]
-pub fn tests(tests: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>) -> String {
+pub fn tests(tests: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>) -> Plot {
     let decimals = opt_int(&opts, "decimals", 4) as usize;
     let title = opt_str(&opts, "title", "Specification Tests");
     let label = opt_str(&opts, "label", "");
+    let fmt = Format::from_str(&opt_str(&opts, "format", "latex"));
 
-    let mut s = String::new();
-    s.push_str(&wrap_table_start(&title, &label));
-    s.push_str("\\begin{tabular}{lrll}\n\\toprule\n");
-    s.push_str("Test & Statistic & df & p-value \\\\\n\\midrule\n");
+    let mut tbl = Table::new(4, 'l');
+    tbl.headers.push(vec![
+        "Test".into(),
+        "Statistic".into(),
+        "df".into(),
+        "p-value".into(),
+    ]);
 
     for t in &tests {
         if let HayashiValue::Dict(d) = t {
@@ -612,40 +638,42 @@ pub fn tests(tests: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>) -> S
             };
             let p = val_as_f64(d.get("p").unwrap_or(&HayashiValue::Nil)).unwrap_or(f64::NAN);
             let star = stars(p);
-            s.push_str(&format!(
-                "{} & {} & {} & {}{} \\\\\n",
+            tbl.body.push(vec![
                 name,
                 fmt_trim(stat, decimals),
                 df_val,
-                fmt_trim(p, decimals),
-                star
-            ));
+                format!("{}{}", fmt_trim(p, decimals), star),
+            ]);
         }
     }
 
-    s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(wrap_table_end(&title));
-    s.push_str(star_legend());
-    s
+    tbl.caption = title;
+    tbl.label = label;
+    tbl.show_stars = true;
+    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
 }
 
 /// 7. haytex::diagnostics(model, opts)
 /// Diagnostic tests table. Returns a template for VIF, DW, BP, RESET, White, JB.
 /// The user fills in the values from Hayashi's diagnostic functions.
-/// opts: decimals=4, title="", label=""
+/// opts: decimals=4, title="", label="", format="latex"
 #[hayashi_fn]
-pub fn diagnostics(_model: HayashiValue, opts: HashMap<String, HayashiValue>) -> String {
+pub fn diagnostics(_model: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot {
     let decimals = opt_int(&opts, "decimals", 4) as usize;
     let title = opt_str(&opts, "title", "Diagnostic Tests");
     let label = opt_str(&opts, "label", "");
+    let fmt = Format::from_str(&opt_str(&opts, "format", "latex"));
 
-    let mut s = String::new();
-    s.push_str(&wrap_table_start(&title, &label));
-    s.push_str("\\begin{tabular}{lrrl}\n\\toprule\n");
-    s.push_str("Test & Statistic & p-value & Result \\\\\n\\midrule\n");
+    let mut tbl = Table::new(4, 'l');
+    tbl.headers.push(vec![
+        "Test".into(),
+        "Statistic".into(),
+        "p-value".into(),
+        "Result".into(),
+    ]);
 
     // Standard diagnostic tests with placeholder values
-    let tests = [
+    let test_rows = [
         ("VIF (max)", "---", "---", "Check"),
         ("Durbin-Watson", "---", "---", "Check"),
         ("Breusch-Pagan", "---", "---", "Check"),
@@ -654,14 +682,14 @@ pub fn diagnostics(_model: HayashiValue, opts: HashMap<String, HayashiValue>) ->
         ("Jarque-Bera", "---", "---", "Check"),
     ];
 
-    for (name, stat, p, result) in &tests {
-        s.push_str(&format!("{} & {} & {} & {} \\\\\n", name, stat, p, result));
+    for (name, stat, p, result) in &test_rows {
+        tbl.body.push(vec![name.to_string(), stat.to_string(), p.to_string(), result.to_string()]);
     }
 
-    s.push_str("\\bottomrule\n\\end{tabular}\n");
-    s.push_str(wrap_table_end(&title));
+    tbl.caption = title;
+    tbl.label = label;
     let _ = decimals; // reserved for future use when tests are computed
-    s
+    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────
@@ -730,8 +758,8 @@ mod tests {
         // a função deve retornar "% Error: ..." sem panic.
         let out = __hayashi_impl_table(HayashiValue::Nil, HashMap::new());
         assert!(
-            out.starts_with("% Error:"),
-            "esperado comentário de erro, obteve: {out}"
+            out.spec.starts_with("% Error:"),
+            "esperado comentário de erro, obteve: {:?}", out.spec
         );
     }
 
@@ -748,7 +776,7 @@ mod tests {
             HayashiValue::List(vec![HayashiValue::Float(3.0), HayashiValue::Float(4.0)]),
         );
         let out = __hayashi_impl_table(HayashiValue::Dict(df), HashMap::new());
-        assert!(out.contains("\\toprule"), "falta \\toprule: {out}");
-        assert!(out.contains("\\bottomrule"), "falta \\bottomrule: {out}");
+        assert!(out.spec.contains("\\toprule"), "falta \\toprule: {:?}", out.spec);
+        assert!(out.spec.contains("\\bottomrule"), "falta \\bottomrule: {:?}", out.spec);
     }
 }

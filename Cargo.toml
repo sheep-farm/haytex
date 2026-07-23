@@ -11,7 +11,7 @@ keywords = ["hayashi", "latex", "econometrics", "tables", "plugin"]
 crate-type = ["cdylib"]
 
 [dependencies]
-hayashi-plugin-sdk = { git = "https://github.com/sheep-farm/hayashi-plugin-sdk.git", branch = "main" }
+hayashi-plugin-sdk = { path = "/home/flavop/GitHub/hayashi-plugin-sdk/sdk" }
 
 [profile.release]
 opt-level = 3

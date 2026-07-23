@@ -2,6 +2,7 @@
 #![allow(dead_code, clippy::too_many_arguments, clippy::needless_range_loop)]
 
 use hayashi_plugin_sdk::value::HayashiValue;
+use crate::format::Format;
 use std::collections::HashMap;
 
 /// Format a float with a given number of decimal places, trimming trailing zeros.
@@ -166,4 +167,15 @@ pub fn wrap_table(content: &str, caption: &str, label: &str) -> String {
 /// Star legend footer.
 pub fn star_legend() -> &'static str {
     "\\par\\vspace{2pt}\n\\footnotesize \\*** p<0.01, ** p<0.05, * p<0.1\n"
+}
+
+/// Returns the MIME-ish format name used by the Plot wrapper.
+pub fn format_name(fmt: Format) -> String {
+    match fmt {
+        Format::Html => "html".into(),
+        Format::Markdown => "markdown".into(),
+        Format::Rtf => "rtf".into(),
+        Format::Csv => "csv".into(),
+        _ => "latex".into(),
+    }
 }

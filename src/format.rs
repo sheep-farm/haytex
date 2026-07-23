@@ -10,6 +10,7 @@ use crate::helpers::{esc, fmt_trim, join, stars};
 pub enum Format {
     Latex,
     Html,
+    Markdown,
     Rtf,
     Csv,
 }
@@ -18,6 +19,7 @@ impl Format {
     pub fn from_str(s: &str) -> Format {
         match s.to_lowercase().as_str() {
             "html" => Format::Html,
+            "markdown" | "md" => Format::Markdown,
             "rtf" => Format::Rtf,
             "csv" => Format::Csv,
             _ => Format::Latex,
@@ -32,6 +34,7 @@ impl Format {
                 .replace('&', "&amp;")
                 .replace('<', "&lt;")
                 .replace('>', "&gt;"),
+            Format::Markdown => s.replace('|', "\\|").replace('\n', " "),
             Format::Rtf => s
                 .replace('\\', "\\\\")
                 .replace('{', "\\{")
@@ -86,7 +89,7 @@ impl Format {
         }
         let s = stars(p);
         match self {
-            Format::Latex | Format::Rtf => s.to_string(),
+            Format::Latex | Format::Rtf | Format::Markdown | Format::Csv => s.to_string(),
             Format::Html => {
                 if s.is_empty() {
                     String::new()
@@ -94,7 +97,6 @@ impl Format {
                     format!("<sup>{}</sup>", s)
                 }
             }
-            Format::Csv => s.to_string(),
         }
     }
 
@@ -108,6 +110,7 @@ impl Format {
                 "<p style=\"font-size:0.8em\">*** p&lt;0.01, ** p&lt;0.05, * p&lt;0.1</p>\n"
                     .to_string()
             }
+            Format::Markdown => "\n*** p<0.01, ** p<0.05, * p<0.1\n".to_string(),
             Format::Rtf => "\\par *** p<0.01, ** p<0.05, * p<0.1\\par\n".to_string(),
             Format::Csv => "*** p<0.01, ** p<0.05, * p<0.1\n".to_string(),
         }
@@ -150,6 +153,7 @@ impl Table {
         match fmt {
             Format::Latex => self.render_latex(fmt),
             Format::Html => self.render_html(fmt),
+            Format::Markdown => self.render_markdown(fmt),
             Format::Rtf => self.render_rtf(fmt),
             Format::Csv => self.render_csv(fmt),
         }
@@ -233,6 +237,39 @@ impl Table {
             }
         }
         s.push_str("</tbody>\n</table>\n");
+        if self.show_stars {
+            s.push_str(&fmt.star_legend());
+        }
+        s
+    }
+
+    fn render_markdown(&self, fmt: Format) -> String {
+        let mut s = String::new();
+        if !self.caption.is_empty() {
+            s.push_str(&format!("**{}**\n\n", fmt.esc_cell(&self.caption)));
+        }
+        if !self.headers.is_empty() {
+            for row in &self.headers {
+                s.push_str("| ");
+                s.push_str(&row.iter().map(|c| fmt.esc_cell(c)).collect::<Vec<_>>().join(" | "));
+                s.push_str(" |\n");
+                s.push_str("| ");
+                s.push_str(&row.iter().map(|_| "---").collect::<Vec<_>>().join(" | "));
+                s.push_str(" |\n");
+            }
+        }
+        for row in &self.body {
+            s.push_str("| ");
+            s.push_str(&row.iter().map(|c| fmt.esc_cell(c)).collect::<Vec<_>>().join(" | "));
+            s.push_str(" |\n");
+        }
+        if !self.footer.is_empty() {
+            for row in &self.footer {
+                s.push_str("| ");
+                s.push_str(&row.iter().map(|c| fmt.esc_cell(c)).collect::<Vec<_>>().join(" | "));
+                s.push_str(" |\n");
+            }
+        }
         if self.show_stars {
             s.push_str(&fmt.star_legend());
         }
