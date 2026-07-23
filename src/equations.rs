@@ -97,6 +97,20 @@ pub fn formula(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot
     equation_impl(model, opts)
 }
 
+/// 13. haytex::md(text)
+/// Markdown string → rendered cell output in Jupyter.
+#[hayashi_fn]
+pub fn md(text: String) -> Plot {
+    Plot { spec: text, format: "markdown".into() }
+}
+
+/// 14. haytex::latex(text)
+/// LaTeX string → rendered cell output in Jupyter.
+#[hayashi_fn]
+pub fn latex(text: String) -> Plot {
+    Plot { spec: text, format: "latex".into() }
+}
+
 /// 5. haytex::matrix(mat, opts)
 /// Matrix → bmatrix/pmatrix.
 /// opts: decimals=4, brackets="b" (b=brackets, p=parentheses)
