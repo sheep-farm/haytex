@@ -251,7 +251,12 @@ impl Table {
         if !self.headers.is_empty() {
             for row in &self.headers {
                 s.push_str("| ");
-                s.push_str(&row.iter().map(|c| fmt.esc_cell(c)).collect::<Vec<_>>().join(" | "));
+                s.push_str(
+                    &row.iter()
+                        .map(|c| fmt.esc_cell(c))
+                        .collect::<Vec<_>>()
+                        .join(" | "),
+                );
                 s.push_str(" |\n");
                 s.push_str("| ");
                 s.push_str(&row.iter().map(|_| "---").collect::<Vec<_>>().join(" | "));
@@ -260,13 +265,23 @@ impl Table {
         }
         for row in &self.body {
             s.push_str("| ");
-            s.push_str(&row.iter().map(|c| fmt.esc_cell(c)).collect::<Vec<_>>().join(" | "));
+            s.push_str(
+                &row.iter()
+                    .map(|c| fmt.esc_cell(c))
+                    .collect::<Vec<_>>()
+                    .join(" | "),
+            );
             s.push_str(" |\n");
         }
         if !self.footer.is_empty() {
             for row in &self.footer {
                 s.push_str("| ");
-                s.push_str(&row.iter().map(|c| fmt.esc_cell(c)).collect::<Vec<_>>().join(" | "));
+                s.push_str(
+                    &row.iter()
+                        .map(|c| fmt.esc_cell(c))
+                        .collect::<Vec<_>>()
+                        .join(" | "),
+                );
                 s.push_str(" |\n");
             }
         }

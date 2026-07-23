@@ -29,7 +29,8 @@ pub fn table(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot {
     if !data.columns.is_empty() {
         tbl.align[0] = 'l';
     }
-    tbl.headers.push(data.columns.iter().map(|c| esc(c)).collect());
+    tbl.headers
+        .push(data.columns.iter().map(|c| esc(c)).collect());
 
     for i in 0..nrows {
         let row: Vec<String> = data
@@ -53,7 +54,10 @@ pub fn table(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot {
     if longtable {
         // longtable only makes sense for LaTeX; for HTML/others ignore
     }
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 /// 2. haytex::regression(models, opts)
@@ -142,7 +146,10 @@ pub fn regression(models: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>
     tbl.caption = title;
     tbl.label = label;
     tbl.show_stars = show_stars;
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 /// Standard layout: variables in rows, models in columns.
@@ -323,7 +330,16 @@ pub fn summary(df: HayashiValue, vars: Vec<String>, opts: HashMap<String, Hayash
         let col = match data.get_col(vname) {
             Ok(c) => c,
             Err(e) => {
-                tbl.body.push(vec![format!("% Error: {e}"), String::new(), String::new(), String::new(), String::new(), String::new(), String::new(), String::new()]);
+                tbl.body.push(vec![
+                    format!("% Error: {e}"),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                ]);
                 continue;
             }
         };
@@ -372,7 +388,10 @@ pub fn summary(df: HayashiValue, vars: Vec<String>, opts: HashMap<String, Hayash
 
     tbl.caption = title;
     tbl.label = label;
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 /// 6. haytex::correlation(df, vars, opts)
@@ -475,7 +494,10 @@ pub fn correlation(
     tbl.caption = title;
     tbl.label = label;
     tbl.show_stars = true;
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 /// 9. haytex::codebook(df, opts)
@@ -530,7 +552,10 @@ pub fn codebook(df: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot {
 
     tbl.caption = title;
     tbl.label = label;
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 /// 12. haytex::anova(model, opts)
@@ -602,7 +627,10 @@ pub fn anova(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot {
 
     tbl.caption = title;
     tbl.label = label;
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 /// 8. haytex::tests(tests, opts)
@@ -650,7 +678,10 @@ pub fn tests(tests: Vec<HayashiValue>, opts: HashMap<String, HayashiValue>) -> P
     tbl.caption = title;
     tbl.label = label;
     tbl.show_stars = true;
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 /// 7. haytex::diagnostics(model, opts)
@@ -683,13 +714,21 @@ pub fn diagnostics(_model: HayashiValue, opts: HashMap<String, HayashiValue>) ->
     ];
 
     for (name, stat, p, result) in &test_rows {
-        tbl.body.push(vec![name.to_string(), stat.to_string(), p.to_string(), result.to_string()]);
+        tbl.body.push(vec![
+            name.to_string(),
+            stat.to_string(),
+            p.to_string(),
+            result.to_string(),
+        ]);
     }
 
     tbl.caption = title;
     tbl.label = label;
     let _ = decimals; // reserved for future use when tests are computed
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────
@@ -759,7 +798,8 @@ mod tests {
         let out = __hayashi_impl_table(HayashiValue::Nil, HashMap::new());
         assert!(
             out.spec.starts_with("% Error:"),
-            "esperado comentário de erro, obteve: {:?}", out.spec
+            "esperado comentário de erro, obteve: {:?}",
+            out.spec
         );
     }
 
@@ -776,7 +816,15 @@ mod tests {
             HayashiValue::List(vec![HayashiValue::Float(3.0), HayashiValue::Float(4.0)]),
         );
         let out = __hayashi_impl_table(HayashiValue::Dict(df), HashMap::new());
-        assert!(out.spec.contains("\\toprule"), "falta \\toprule: {:?}", out.spec);
-        assert!(out.spec.contains("\\bottomrule"), "falta \\bottomrule: {:?}", out.spec);
+        assert!(
+            out.spec.contains("\\toprule"),
+            "falta \\toprule: {:?}",
+            out.spec
+        );
+        assert!(
+            out.spec.contains("\\bottomrule"),
+            "falta \\bottomrule: {:?}",
+            out.spec
+        );
     }
 }

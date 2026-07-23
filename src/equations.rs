@@ -36,7 +36,11 @@ fn equation_impl(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> Pl
     if let Some(idx) = const_idx {
         if estimated {
             let c = md.coef[idx];
-            eq.push_str(&format!("{}{}", fmt_trim(c, decimals), star_latex(md.p_value[idx])));
+            eq.push_str(&format!(
+                "{}{}",
+                fmt_trim(c, decimals),
+                star_latex(md.p_value[idx])
+            ));
         } else {
             eq.push_str("\\beta_0");
         }
@@ -101,14 +105,20 @@ pub fn formula(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot
 /// Markdown string → rendered cell output in Jupyter.
 #[hayashi_fn]
 pub fn md(text: String) -> Plot {
-    Plot { spec: text, format: "markdown".into() }
+    Plot {
+        spec: text,
+        format: "markdown".into(),
+    }
 }
 
 /// 14. haytex::latex(text)
 /// LaTeX string → rendered cell output in Jupyter.
 #[hayashi_fn]
 pub fn latex(text: String) -> Plot {
-    Plot { spec: text, format: "latex".into() }
+    Plot {
+        spec: text,
+        format: "latex".into(),
+    }
 }
 
 /// 5. haytex::matrix(mat, opts)
@@ -205,7 +215,10 @@ pub fn margins(model: HayashiValue, opts: HashMap<String, HayashiValue>) -> Plot
     tbl.caption = title;
     tbl.label = label;
     tbl.show_stars = true;
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 /// 11. haytex::forecast(model, h, opts)
@@ -271,7 +284,10 @@ pub fn forecast(model: HayashiValue, h: i64, opts: HashMap<String, HayashiValue>
 
     tbl.caption = title;
     tbl.label = label;
-    Plot { spec: tbl.render(fmt), format: format_name(fmt) }
+    Plot {
+        spec: tbl.render(fmt),
+        format: format_name(fmt),
+    }
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────
